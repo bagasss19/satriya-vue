@@ -80,30 +80,30 @@
           <div class="drag-area">
             <!-- <p>Drag and drop gambar ke sini</p> -->
             <div
-              v-for="(widget, index) in widgets"
+              v-for="(widgetName, index) in Object.keys(widgets)"
               :key="index"
-              :id="widget.id"
+              :id="widgets[widgetName].id"
               class="position-absolute"
-              :style="`transform: translate(${widget.xAxis}px, ${widget.yAxis}px);`"
-              @dragstart="inactiveAllWidget(); widget.active = true"
-              @dragenter="inactiveAllWidget(); widget.active = true"
-              @click="inactiveAllWidget(); widget.active = true"
+              :style="`transform: translate(${widgets[widgetName].xAxis}px, ${widgets[widgetName].yAxis}px);`"
+              @dragstart="activateWidget(widgetName)"
+              @dragenter="activateWidget(widgetName)"
+              @click="activateWidget(widgetName)"
             >
               <div class="container p-0">
                 <p
-                  v-if="widget.active"
-                  class="user-select-none"
+                  v-if="widgets[widgetName].active"
+                  class="user-select-none position-absolute widget-title w-100"
                   style="font-size: 12px; margin-bottom: 3px;"
-                  v-text="widget.title"
+                  v-text="widgets[widgetName].name"
                 />
                 <img
-                  :src="widget.url"
+                  :src="widgets[widgetName].url"
                   alt="Dragged Image"
-                  :class="`user-select-none ${widget.active ? 'widget-wrapper' : ''}`"
+                  :class="`user-select-none ${widgets[widgetName].active ? 'widget-wrapper' : ''}`"
                 >
-                <div v-if="widget.active" class="d-flex w-100 widget-control-wrapper">
-                  <div v-if="widget.data !== null" class="col-auto p-0">
-                    <button class="btn btn-sm btn-outline-dark px-1 py-0" @click="openFormWidgetModal(index)" data-bs-target="#widget-form-modal" data-bs-toggle="modal">
+                <div v-if="widgets[widgetName].active" class="d-flex w-100 widget-control-wrapper">
+                  <div v-if="widgets[widgetName].data !== null" class="col-auto p-0">
+                    <button class="btn btn-sm btn-outline-dark px-1 py-0" @click="openFormWidgetModal(widgetName)" data-bs-target="#widget-form-modal" data-bs-toggle="modal">
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16">
                         <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
                         <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/>
@@ -111,7 +111,7 @@
                     </button>
                   </div>
                   <div class="col-auto p-0">
-                    <button class="btn btn-sm btn-outline-danger px-1 py-0" @click="deleteWidget(index)">
+                    <button class="btn btn-sm btn-outline-danger px-1 py-0" @click="deleteWidget(widgetName)">
                       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-trash-fill" viewBox="0 0 16 16">
                         <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z"/>
                       </svg>
@@ -127,6 +127,7 @@
         <div class="col-md-12">
           <button
             class="btn-function"
+            @click="submit()"
             v-text="'Run Code'"
           />
         </div>
@@ -139,7 +140,7 @@
           <div class="modal-header">
             <h5
               class="modal-title"
-              v-text="formWidgetModal.show ? widgets[formWidgetModal.widgetIndex].title : ''"
+              v-text="formWidgetModal.show ? (widgets[formWidgetModal.widgetIndex].name ?? '') : ''"
             />
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
@@ -147,10 +148,17 @@
             <div
               v-for="(form, index) in editedForms"
               :key="index"
-              class="form-group"
             >
-              <label>{{ form.title }}</label>
-              <input v-model="form.value" type="text" class="form-control" :placeholder="`Masukkan ${form.title}...`" aria-describedby="helpId">
+              <div v-if="(typeof form.value) === 'boolean'" class="form-check">
+                <label class="form-check-label">
+                  {{ form.title }}
+                  <input v-model="form.value" type="checkbox" class="form-check-input" checked>
+                </label>
+              </div>
+              <div v-else class="form-group">
+                <label>{{ form.title }}</label>
+                <input v-model="form.value" type="text" class="form-control" :placeholder="`Masukkan ${form.title}...`" aria-describedby="helpId">
+              </div>
             </div>
           </div>
           <div class="modal-footer">
@@ -176,9 +184,10 @@
   <!--====== EXPER PART ENDS ======-->
 </template>
 
+
 <script>
 import interact from "interactjs";
-
+import axios from 'axios';
 
 export default {
   name: 'ExperimentPage',
@@ -188,11 +197,11 @@ export default {
 
   data () {
     return {
-      widgets: [],
+      widgets: {},
       accumulatedRefs: 0,
       formWidgetModal: {
         show: false,
-        widgetIndex: 0
+        widgetIndex: ''
       },
       editedForms: []
     }
@@ -202,17 +211,19 @@ export default {
     const tempWidgets = this.widgets
     document.addEventListener('keyup', function (event) {
       if (event.key === 'Escape') {
-        tempWidgets.map((element) => {
-          element.active = false
+        Object.keys(tempWidgets).map((element) => {
+          tempWidgets[element].active = false
         })
       }
 
       if (event.key === 'Delete') {
-        const activeWidget = tempWidgets.find(element => element.active) ?? null
+        const activeWidget = Object.keys(tempWidgets).find(element =>
+          tempWidgets[element].active) ?? null
+
         if (activeWidget !== null) {
-          tempWidgets.map((element, index) => {
+          Object.keys(tempWidgets).map((element) => {
             if (element === activeWidget) {
-              tempWidgets.splice(index, 1)
+              delete tempWidgets[element]
             }
           })
         }
@@ -222,26 +233,14 @@ export default {
 
   methods: {
     addWidget (widgetName) {
-      let countWidget = 1
-      let widgetIdIsExited = true
+      const existedWidget = Object.keys(this.widgets).find((element) =>
+        element === widgetName) ?? null
 
-      while (widgetIdIsExited) {
-        const findWidgetId = this.widgets.find((element) =>
-          element.name === widgetName &&
-          element.widgetId === countWidget) ?? null
-
-        if (findWidgetId === null) {
-          widgetIdIsExited = false
-        } else {
-          countWidget++
-        }
-      }
+      if (existedWidget !== null) { return }
 
       let dataWidget = {
-        id: `widget-${this.accumulatedRefs}`,
-        widgetId: countWidget,
+        id: `widget-${widgetName}`,
         name: widgetName,
-        title: `${widgetName}-${countWidget}`,
         url: `assets/images/widgets/${widgetName}.png`,
         xAxis: 0.0,
         yAxis: 0.0,
@@ -256,15 +255,15 @@ export default {
       } else if (widgetName === 'addcp') {
         dataWidget.data = { add_cp: '' }
       } else if (widgetName === 'output') {
-        dataWidget.data = { output: '' }
+        dataWidget.data = { output: '', output_flag: true }
       } else {
         dataWidget.data = null
       }
 
-      this.widgets.push(dataWidget)
+      this.widgets[widgetName] = dataWidget
 
       setTimeout(() => {
-        const widget = document.getElementById(`widget-${this.accumulatedRefs}`)
+        const widget = document.getElementById(`widget-${widgetName}`)
         if (widget) {
           interact(widget)
             .draggable({
@@ -292,21 +291,26 @@ export default {
       }, 0);
     },
 
-    deleteWidget (index) {
-      this.widgets.splice(index, 1)
+    deleteWidget (widgetName) {
+      delete this.widgets[widgetName]
+    },
+
+    activateWidget (widgetName) {
+      this.inactiveAllWidget()
+
+      if (this.widgets[widgetName]) {
+        this.widgets[widgetName].active = true
+      }
     },
 
     inactiveAllWidget () {
-      this.widgets.map(element => element.active = false)
+      Object.keys(this.widgets).map(element =>
+        this.widgets[element].active = false)
     },
 
     dragMoveListener (event) {
       const target = event.target
-      let widgetItemIndex = 0
-      
-      this.widgets.map((element, index) => {
-        if (element.id == target.id) { widgetItemIndex = index }
-      })
+      let widgetItemIndex = target.id.substring(target.id.indexOf("-") + 1);
       
       this.widgets[widgetItemIndex].xAxis = this.widgets[widgetItemIndex].xAxis + event.dx;
       this.widgets[widgetItemIndex].yAxis = this.widgets[widgetItemIndex].yAxis + event.dy;
@@ -323,7 +327,7 @@ export default {
       } else if (dataWidget.name === 'addcp') {
         fields = ['Add CP']
       } else if (dataWidget.name === 'output') {
-        fields = ['Output']
+        fields = ['Output', 'Output Flag']
       }
 
       Object.keys(dataWidget.data).map((element, index) => {
@@ -342,7 +346,7 @@ export default {
 
     closeFormWidgetModal () {
       this.formWidgetModal.show = false
-      this.formWidgetModal.widgetIndex = 0
+      this.formWidgetModal.widgetIndex = ''
     },
 
     saveFormWidgetModalData (modalFormData) {
@@ -351,10 +355,42 @@ export default {
         selectedWidget.data[element] = modalFormData[index].value
       })
       this.closeFormWidgetModal()
+    },
+
+    async submit () {
+      const url = ''
+      let dataRequest = {
+        input: { mod_order: '', subcarrier: '' },
+        ifft: '',
+        addcp: '',
+        output: { output: '', output_flag: false },
+      }
+
+      if (this.widget.input.data) {
+        dataRequest.input = {
+          mod_order: this.widget.input.data.mod_order ?? '',
+          subcarrier: this.widget.input.data.subcarrier ?? ''
+        }
+      } else if (this.widget.ifft.data) {
+        dataRequest.ifft = this.widget.ifft.data ?? ''
+      } else if (this.widget.addcp.data) {
+        dataRequest.addcp = this.widget.addcp.data ?? ''
+      } else if (this.widget.output.data) {
+        dataRequest.output = {
+          output: this.widget.output.data.output ?? '',
+          output_flag: this.widget.output.data.output_flag ?? false
+        }
+      }
+
+      await axios.post(url, dataRequest)
+        .then((result) => result)
+        .catch((err) => err)
+        .finally(() => {})
     }
   }
 }
 </script>
+
 
 <style scoped>
   .pricing-area {
@@ -416,5 +452,11 @@ export default {
     position: absolute;
     transform: translateY(3px);
     justify-content: center;
+  }
+
+  .widget-title {
+    transform: translateY(-17px);
+    justify-content: center;
+    text-align: center;
   }
 </style>
